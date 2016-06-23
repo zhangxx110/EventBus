@@ -30,3 +30,4 @@ local.properties
 
 # Misc
 .DS_Store
+EventBus/secring.gpg
