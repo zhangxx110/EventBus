@@ -27,6 +27,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
 public @interface Subscribe {
+    int eventId() default -1;
+
     ThreadMode threadMode() default ThreadMode.POSTING;
 
     /**

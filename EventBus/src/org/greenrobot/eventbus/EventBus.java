@@ -40,7 +40,6 @@ import java.util.concurrent.ExecutorService;
  * @author Markus Junginger, greenrobot
  */
 public class EventBus {
-
     /** Log tag, apps may override it. */
     public static String TAG = "EventBus";
 
@@ -243,6 +242,10 @@ public class EventBus {
 
     /** Posts the given event to the event bus. */
     public void post(Object event) {
+        post(-1, event);
+    }
+
+    public void post(int eventId, Object event) {
         PostingThreadState postingState = currentPostingThreadState.get();
         List<Object> eventQueue = postingState.eventQueue;
         eventQueue.add(event);
@@ -255,7 +258,7 @@ public class EventBus {
             }
             try {
                 while (!eventQueue.isEmpty()) {
-                    postSingleEvent(eventQueue.remove(0), postingState);
+                    postSingleEvent(eventId, eventQueue.remove(0), postingState);
                 }
             } finally {
                 postingState.isPosting = false;
@@ -263,7 +266,6 @@ public class EventBus {
             }
         }
     }
-
     /**
      * Called from a subscriber's event handling method, further event delivery will be canceled. Subsequent
      * subscribers
@@ -292,11 +294,15 @@ public class EventBus {
      * event of an event's type is kept in memory for future access by subscribers using {@link Subscribe#sticky()}.
      */
     public void postSticky(Object event) {
+        postSticky(-1, event);
+    }
+
+    public void postSticky(int eventId, Object event) {
         synchronized (stickyEvents) {
             stickyEvents.put(event.getClass(), event);
         }
         // Should be posted after it is putted, in case the subscriber wants to remove immediately
-        post(event);
+        post(eventId, event);
     }
 
     /**
@@ -366,7 +372,7 @@ public class EventBus {
         return false;
     }
 
-    private void postSingleEvent(Object event, PostingThreadState postingState) throws Error {
+    private void postSingleEvent(int eventId, Object event, PostingThreadState postingState) throws Error {
         Class<?> eventClass = event.getClass();
         boolean subscriptionFound = false;
         if (eventInheritance) {
@@ -374,10 +380,10 @@ public class EventBus {
             int countTypes = eventTypes.size();
             for (int h = 0; h < countTypes; h++) {
                 Class<?> clazz = eventTypes.get(h);
-                subscriptionFound |= postSingleEventForEventType(event, postingState, clazz);
+                subscriptionFound |= postSingleEventForEventType(eventId, event, postingState, clazz);
             }
         } else {
-            subscriptionFound = postSingleEventForEventType(event, postingState, eventClass);
+            subscriptionFound = postSingleEventForEventType(eventId, event, postingState, eventClass);
         }
         if (!subscriptionFound) {
             if (logNoSubscriberMessages) {
@@ -390,7 +396,7 @@ public class EventBus {
         }
     }
 
-    private boolean postSingleEventForEventType(Object event, PostingThreadState postingState, Class<?> eventClass) {
+    private boolean postSingleEventForEventType(int eventId, Object event, PostingThreadState postingState, Class<?> eventClass) {
         CopyOnWriteArrayList<Subscription> subscriptions;
         synchronized (this) {
             subscriptions = subscriptionsByEventType.get(eventClass);
@@ -401,7 +407,12 @@ public class EventBus {
                 postingState.subscription = subscription;
                 boolean aborted = false;
                 try {
-                    postToSubscription(subscription, event, postingState.isMainThread);
+                    int id = subscription.subscriberMethod.eventId;
+                    if (id == -1 && eventId == -1 || id != -1 && subscription.subscriberMethod.eventId == eventId) {
+                        postToSubscription(subscription, event, postingState.isMainThread);
+                    } else {
+                        System.out.println("regist id: " + id+" !=  post id:"+eventId);
+                    }
                     aborted = postingState.canceled;
                 } finally {
                     postingState.event = null;

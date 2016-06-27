@@ -35,7 +35,7 @@ public class EventBusIndexTest {
             public SubscriberInfo getSubscriberInfo(Class<?> subscriberClass) {
                 Assert.assertEquals(EventBusIndexTest.class, subscriberClass);
                 SubscriberMethodInfo[] methodInfos = {
-                        new SubscriberMethodInfo("someMethodWithoutAnnotation", String.class)
+                        new SubscriberMethodInfo("someMethodWithoutAnnotation", String.class, -1)
                 };
                 return new SimpleSubscriberInfo(EventBusIndexTest.class, false, methodInfos);
             }

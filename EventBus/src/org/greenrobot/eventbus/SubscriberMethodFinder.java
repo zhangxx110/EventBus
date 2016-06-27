@@ -166,10 +166,11 @@ class SubscriberMethodFinder {
                     Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
                     if (subscribeAnnotation != null) {
                         Class<?> eventType = parameterTypes[0];
+                        int eventId = subscribeAnnotation.eventId();
                         if (findState.checkAdd(method, eventType)) {
                             ThreadMode threadMode = subscribeAnnotation.threadMode();
-                            findState.subscriberMethods.add(new SubscriberMethod(method, eventType, threadMode,
-                                    subscribeAnnotation.priority(), subscribeAnnotation.sticky()));
+                            findState.subscriberMethods.add(new SubscriberMethod(method, eventType, eventId,
+                                    threadMode, subscribeAnnotation.priority(), subscribeAnnotation.sticky()));
                         }
                     }
                 } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
