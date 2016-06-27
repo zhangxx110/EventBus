@@ -1,3 +1,4 @@
+apply plugin: 'maven'
 if (JavaVersion.current().isJava8Compatible()) {
     allprojects {
         tasks.withType(Javadoc) {
@@ -5,7 +6,19 @@ if (JavaVersion.current().isJava8Compatible()) {
         }
     }
 }
-
+allprojects {
+    repositories {
+        jcenter()
+    }
+}
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.1.2'
+    }
+}
 task wrapper(type: Wrapper) {
     gradleVersion = '2.10'
 }
