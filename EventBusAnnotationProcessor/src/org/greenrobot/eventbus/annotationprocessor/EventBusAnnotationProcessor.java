@@ -255,13 +255,16 @@ public class EventBusAnnotationProcessor extends AbstractProcessor {
             String lineEnd = "),";
             if (subscribe.priority() == 0 && !subscribe.sticky()) {
                 if (subscribe.threadMode() == ThreadMode.POSTING) {
-                    parts.add(eventClass + lineEnd);
+                    parts.add(eventClass + ",");
+                    parts.add("-1"+lineEnd);
                 } else {
                     parts.add(eventClass + ",");
+                    parts.add("-1,");
                     parts.add("ThreadMode." + subscribe.threadMode().name() + lineEnd);
                 }
             } else {
                 parts.add(eventClass + ",");
+                parts.add("-1,");
                 parts.add("ThreadMode." + subscribe.threadMode().name() + ",");
                 parts.add(subscribe.priority() + ",");
                 parts.add(subscribe.sticky() + lineEnd);
