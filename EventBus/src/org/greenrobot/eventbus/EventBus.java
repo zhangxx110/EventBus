@@ -17,6 +17,7 @@ package org.greenrobot.eventbus;
 
 import android.os.Looper;
 import android.util.Log;
+import android.util.Pair;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
@@ -24,10 +25,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+
+
 
 /**
  * EventBus is a central publish/subscribe event system for Android. Events are posted ({@link #post(Object)}) to the
@@ -247,8 +251,8 @@ public class EventBus {
 
     public void post(int eventId, Object event) {
         PostingThreadState postingState = currentPostingThreadState.get();
-        List<Object> eventQueue = postingState.eventQueue;
-        eventQueue.add(event);
+        List<Pair<Object,Integer>> eventQueue = postingState.eventQueue;
+        eventQueue.add(new Pair<>(event,eventId));
 
         if (!postingState.isPosting) {
             postingState.isMainThread = Looper.getMainLooper() == Looper.myLooper();
@@ -258,7 +262,8 @@ public class EventBus {
             }
             try {
                 while (!eventQueue.isEmpty()) {
-                    postSingleEvent(eventId, eventQueue.remove(0), postingState);
+                    Pair<Object,Integer> pair = eventQueue.remove(0);
+                    postSingleEvent(pair.first, pair.second, postingState);
                 }
             } finally {
                 postingState.isPosting = false;
@@ -372,7 +377,7 @@ public class EventBus {
         return false;
     }
 
-    private void postSingleEvent(int eventId, Object event, PostingThreadState postingState) throws Error {
+    private void postSingleEvent(Object event, int eventId, PostingThreadState postingState) throws Error {
         Class<?> eventClass = event.getClass();
         boolean subscriptionFound = false;
         if (eventInheritance) {
@@ -536,7 +541,7 @@ public class EventBus {
 
     /** For ThreadLocal, much faster to set (and get multiple values). */
     final static class PostingThreadState {
-        final List<Object> eventQueue = new ArrayList<Object>();
+        final List<Pair<Object,Integer>> eventQueue = new ArrayList<>();
         boolean isPosting;
         boolean isMainThread;
         Subscription subscription;
