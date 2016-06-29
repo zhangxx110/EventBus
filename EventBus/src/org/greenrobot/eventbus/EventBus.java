@@ -54,7 +54,7 @@ public class EventBus {
 
     private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscriptionsByEventType;
     private final Map<Object, List<Class<?>>> typesBySubscriber;
-    private final Map<Class<?>, Object> stickyEvents;
+    private final Map<Pair<Class<?>,Integer>, Object> stickyEvents;
 
     private final ThreadLocal<PostingThreadState> currentPostingThreadState = new ThreadLocal<PostingThreadState>() {
         @Override
@@ -187,16 +187,16 @@ public class EventBus {
                 // Note: Iterating over all events may be inefficient with lots of sticky events,
                 // thus data structure should be changed to allow a more efficient lookup
                 // (e.g. an additional map storing sub classes of super classes: Class -> List<Class>).
-                Set<Map.Entry<Class<?>, Object>> entries = stickyEvents.entrySet();
-                for (Map.Entry<Class<?>, Object> entry : entries) {
-                    Class<?> candidateEventType = entry.getKey();
-                    if (eventType.isAssignableFrom(candidateEventType)) {
+                Set<Map.Entry<Pair<Class<?>, Integer>, Object>> entries = stickyEvents.entrySet();
+                for (Map.Entry<Pair<Class<?>, Integer>, Object> entry : entries) {
+                    Pair<Class<?>, Integer> pair = entry.getKey();
+                    if (eventType.isAssignableFrom(pair.first) && pair.second == subscriberMethod.eventId) {
                         Object stickyEvent = entry.getValue();
                         checkPostStickyEventToSubscription(newSubscription, stickyEvent);
                     }
                 }
             } else {
-                Object stickyEvent = stickyEvents.get(eventType);
+                Object stickyEvent = stickyEvents.get(new Pair<>(eventType, subscriberMethod.eventId));
                 checkPostStickyEventToSubscription(newSubscription, stickyEvent);
             }
         }
@@ -304,7 +304,7 @@ public class EventBus {
 
     public void postSticky(int eventId, Object event) {
         synchronized (stickyEvents) {
-            stickyEvents.put(event.getClass(), event);
+            stickyEvents.put(new Pair<Class<?>, Integer>(event.getClass(), eventId), event);
         }
         // Should be posted after it is putted, in case the subscriber wants to remove immediately
         post(eventId, event);
@@ -316,19 +316,38 @@ public class EventBus {
      * @see #postSticky(Object)
      */
     public <T> T getStickyEvent(Class<T> eventType) {
+        return getStickyEvent(eventType, -1);
+    }
+
+    /**
+     * Gets the most recent sticky event for the given type and id.
+     *
+     * @see #postSticky(int, Object)
+     */
+    public <T> T getStickyEvent(Class<T> eventType, int eventId) {
         synchronized (stickyEvents) {
-            return eventType.cast(stickyEvents.get(eventType));
+            return eventType.cast(stickyEvents.get(new Pair<>(eventType, eventId)));
         }
     }
 
     /**
-     * Remove and gets the recent sticky event for the given event type.
+     * Remove and gets the recent sticky event for the given event type. Notice that a msg post with
+     * id can not be removed without id here.
      *
      * @see #postSticky(Object)
      */
     public <T> T removeStickyEvent(Class<T> eventType) {
+        return removeStickyEvent(eventType, -1);
+    }
+
+    /**
+     * Remove and gets the recent sticky event for the given event type and id.
+     *
+     * @see #postSticky(int, Object)
+     */
+    public <T> T removeStickyEvent(Class<T> eventType, int eventId) {
         synchronized (stickyEvents) {
-            return eventType.cast(stickyEvents.remove(eventType));
+            return eventType.cast(stickyEvents.remove(new Pair<>(eventType, eventId)));
         }
     }
 
@@ -338,15 +357,24 @@ public class EventBus {
      * @return true if the events matched and the sticky event was removed.
      */
     public boolean removeStickyEvent(Object event) {
+        List<Pair<Class<?>, Integer>> keys = new ArrayList<>();
         synchronized (stickyEvents) {
-            Class<?> eventType = event.getClass();
-            Object existingEvent = stickyEvents.get(eventType);
-            if (event.equals(existingEvent)) {
-                stickyEvents.remove(eventType);
-                return true;
-            } else {
-                return false;
+            Set<Map.Entry<Pair<Class<?>, Integer>, Object>> entries = stickyEvents.entrySet();
+            for (Map.Entry<Pair<Class<?>, Integer>, Object> entry : entries) {
+                Object existingEvent = entry.getValue();
+                if (event.equals(existingEvent)) {
+                    keys.add(entry.getKey());
+                }
             }
+            for(Pair<Class<?>, Integer> key: keys){
+                stickyEvents.remove(key);
+            }
+        }
+        if(keys.isEmpty()){
+            return false;
+        }
+        else{
+            return true;
         }
     }
 
